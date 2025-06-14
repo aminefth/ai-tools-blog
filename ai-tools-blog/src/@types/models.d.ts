@@ -2,6 +2,13 @@ import { Document, Types } from 'mongoose';
 
 export interface IUser extends Document {
   email: string;
+  stripeCustomerId?: string;
+  userId: Types.ObjectId;
+  currentPeriodEnd: Date;
+  canceledAt?: Date;
+  tokenVersion: number;
+  comparePassword(password: string): Promise<boolean>;
+  updateAffiliateStats(clicks: number, conversions: number, earnings: number): Promise<void>;
   password: string;
   role: 'admin' | 'editor' | 'subscriber' | 'guest';
   profile: {
@@ -73,6 +80,10 @@ export interface ISubscription extends Document {
   userId: Types.ObjectId;
   plan: 'basic' | 'pro' | 'enterprise';
   status: 'active' | 'canceled' | 'past_due';
+  stripeCustomerId?: string;
+  paddleCustomerId?: string;
+  currentPeriodEnd?: Date;
+  canceledAt?: Date;
   externalId: string;
   paymentMethod: 'stripe' | 'paddle';
   price: number;
@@ -97,6 +108,9 @@ export interface IAffiliateClick extends Document {
   blogPostId: Types.ObjectId;
   toolName: string;
   affiliateNetwork: string;
+  affiliateId: string;
+  commission: number;
+  commissionEarned?: number;
   trackingData: {
     ip: string;
     userAgent: string;
@@ -116,6 +130,7 @@ export interface IAffiliateClick extends Document {
 export interface IAnalytics extends Document {
   date: Date;
   revenue: {
+    currency: string;
     total: number;
     affiliate: number;
     subscriptions: number;

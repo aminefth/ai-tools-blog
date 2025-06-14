@@ -4,6 +4,9 @@ import { config } from 'dotenv';
 config();
 
 export const appConfig = {
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+  paddleApiKey: process.env.PADDLE_API_KEY,
+  nodeEnv: process.env.NODE_ENV || 'development',
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
   apiPrefix: '/api/v1',

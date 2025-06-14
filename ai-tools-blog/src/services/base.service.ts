@@ -1,7 +1,9 @@
-import { Model, Document, FilterQuery, UpdateQuery, QueryOptions } from 'mongoose';
+import { Model, Document, FilterQuery, UpdateQuery, QueryOptions, Types, ClientSession, SortOrder } from 'mongoose';
 import { ApiError } from '../middleware/error.middleware';
 import { PaginationParams } from '../interfaces/common';
 import { logger } from '../utils/logger';
+
+type MongooseQueryOptions<T> = QueryOptions<T> & { session?: ClientSession };
 
 export class BaseService<T extends Document> {
   constructor(protected model: Model<T>) {}
@@ -16,9 +18,9 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async findById(id: string, projection?: string): Promise<T> {
+  async findById(id: string | Types.ObjectId, options: QueryOptions<T> = {}): Promise<T> {
     try {
-      const doc = await this.model.findById(id, projection);
+      const doc = await this.model.findById(id, options);
       if (!doc) {
         throw new ApiError(404, 'NOT_FOUND', 'Document not found');
       }
@@ -29,9 +31,9 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async findOne(filter: FilterQuery<T>, projection?: string): Promise<T | null> {
+  async findOne(filter: FilterQuery<T>, options: QueryOptions<T> = {}): Promise<T | null> {
     try {
-      return await this.model.findOne(filter, projection);
+      return await this.model.findOne(filter, options);
     } catch (error) {
       logger.error('FindOne operation failed:', error);
       throw error;
@@ -40,14 +42,15 @@ export class BaseService<T extends Document> {
 
   async find(
     filter: FilterQuery<T>,
+    options: QueryOptions<T> = {},
     pagination?: PaginationParams,
     projection?: string
   ): Promise<{ data: T[]; total: number; page: number; limit: number }> {
     try {
-      const { page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = pagination || {};
+      const { sort = 'createdAt', order = 'desc' as 'asc' | 'desc', limit = 10, page = 1 } = options || pagination || {};
       
       const skip = (page - 1) * limit;
-      const sortQuery = { [sort]: order === 'desc' ? -1 : 1 };
+      const sortQuery: { [key: string]: 'asc' | 'desc' } = { [sort]: order };
 
       const [data, total] = await Promise.all([
         this.model
@@ -70,13 +73,9 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async update(
-    id: string,
-    update: UpdateQuery<T>,
-    options: QueryOptions = { new: true }
-  ): Promise<T> {
+  async update(query: FilterQuery<T>, update: UpdateQuery<T>, options: MongooseQueryOptions<T> = { new: true }): Promise<T> {
     try {
-      const doc = await this.model.findByIdAndUpdate(id, update, options);
+      const doc = await this.model.findOneAndUpdate(query, update, options);
       if (!doc) {
         throw new ApiError(404, 'NOT_FOUND', 'Document not found');
       }
@@ -87,7 +86,7 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async delete(id: string): Promise<T> {
+  async delete(id: string | Types.ObjectId): Promise<T> {
     try {
       const doc = await this.model.findByIdAndDelete(id);
       if (!doc) {
@@ -109,11 +108,7 @@ export class BaseService<T extends Document> {
     }
   }
 
-  async bulkUpdate(
-    filter: FilterQuery<T>,
-    update: UpdateQuery<T>,
-    options: QueryOptions = { new: true }
-  ): Promise<{ modified: number }> {
+  async bulkUpdate(filter: FilterQuery<T>, update: UpdateQuery<T>, options: MongooseQueryOptions<T> = { new: true }): Promise<{ modified: number }> {
     try {
       const result = await this.model.updateMany(filter, update, options);
       return { modified: result.modifiedCount };
